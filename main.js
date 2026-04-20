@@ -1,4 +1,4 @@
-let message = "I LOVE CAT";
+let message = "MEO MEO CHANG CHANG";
 let arr = message.split("");
 function typeTextarea(){
     let str = "";
