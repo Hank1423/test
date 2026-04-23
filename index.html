@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Interactive Floating Circles</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000814; /* Đổi sang nền tối cho hiệu ứng đẹp hơn */ }
+        body { margin: 0; overflow: hidden; background: #000814; touch-action: none; }
         canvas { display: block; }
     </style>
 </head>
@@ -26,27 +26,23 @@
             this.color = color;
             this.dx = dx;
             this.dy = dy;
-            this.alpha = 1; // Độ mờ ban đầu
+            this.alpha = 1;
 
             this.draw = function() {
                 ctx.save();
-                ctx.globalAlpha = this.alpha; // Áp dụng độ mờ
+                ctx.globalAlpha = this.alpha;
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
                 ctx.fill();
-                ctx.closePath();
                 ctx.restore();
             };
 
             this.update = function(dt) {
                 this.x += this.dx * dt;
                 this.y += this.dy * dt;
-                this.alpha -= 0.5 * dt; // Giảm độ mờ theo thời gian
-
-                if (this.alpha > 0) {
-                    this.draw();
-                }
+                this.alpha -= 0.8 * dt; // Biến mất nhanh hơn một chút cho mượt
+                if (this.alpha > 0) this.draw();
             };
         }
 
@@ -55,69 +51,60 @@
             this.x = x;
             this.y = y;
             this.radius = radius;
+            this.baseDx = dx;
+            this.baseDy = dy;
             this.dx = dx;
             this.dy = dy;
             this.color = color;
-            this.baseDx = dx; // Lưu vận tốc gốc
-            this.baseDy = dy;
-            this.timeSinceShake = 0; // Thời gian kể từ lần lắc cuối
+            this.timeSinceShake = 0;
 
             this.draw = function() {
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
                 ctx.fill();
-                ctx.closePath();
             };
 
             this.update = function(dt) {
-                // Xử lý giảm tốc sau khi lắc (trở về vận tốc gốc)
                 if (this.timeSinceShake > 0) {
                     this.timeSinceShake -= dt;
-                    let shakeFactor = Math.max(1, 1 + this.timeSinceShake / 2); // Giảm dần
-                    this.dx = this.baseDx * shakeFactor;
-                    this.dy = this.baseDy * shakeFactor;
+                    let factor = 1 + this.timeSinceShake * 2; // Tăng tốc khi lắc
+                    this.dx = this.baseDx * factor;
+                    this.dy = this.baseDy * factor;
+                } else {
+                    this.dx = this.baseDx;
+                    this.dy = this.baseDy;
                 }
 
-                // Kiểm tra va chạm cạnh
                 if (this.x + this.radius > canvas.width || this.x - this.radius < 0) {
-                    this.dx = -this.dx;
                     this.baseDx = -this.baseDx;
+                    this.dx = -this.dx;
                 }
                 if (this.y + this.radius > canvas.height || this.y - this.radius < 0) {
-                    this.dy = -this.dy;
                     this.baseDy = -this.baseDy;
+                    this.dy = -this.dy;
                 }
 
                 this.x += this.dx * dt;
                 this.y += this.dy * dt;
-
                 this.draw();
             };
 
-            // Hàm xử lý vỡ bong bóng
             this.burst = function() {
-                const particleCount = 20; // Số lượng hạt khi vỡ
-                for (let i = 0; i < particleCount; i++) {
-                    let pRadius = Math.random() * 5 + 1;
-                    // Hạt bay ra theo hướng ngẫu nhiên
-                    let pDx = (Math.random() - 0.5) * 400;
-                    let pDy = (Math.random() - 0.5) * 400;
-                    particleArray.push(new Particle(this.x, this.y, pRadius, this.color, pDx, pDy));
+                for (let i = 0; i < 15; i++) {
+                    particleArray.push(new Particle(
+                        this.x, this.y, 
+                        Math.random() * 4 + 1, 
+                        this.color, 
+                        (Math.random() - 0.5) * 500, 
+                        (Math.random() - 0.5) * 500
+                    ));
                 }
             };
 
-            // Phương thức lắc (tăng tốc độ tạm thời)
             this.shake = function() {
-                this.timeSinceShake = 3; // Lắc mạnh trong 3 giây
+                this.timeSinceShake = 2; // Hiệu ứng lắc kéo dài 2 giây
             };
-        }
-
-        function getRandomColor() {
-            let blue = Math.floor(Math.random() * 56) + 200;
-            let green = Math.floor(Math.random() * (blue - 50));
-            let red = Math.floor(Math.random() * 50);
-            return `rgb(${red}, ${green}, ${blue})`;
         }
 
         let circleArray = [];
@@ -125,13 +112,18 @@
 
         function initCircles() {
             circleArray = [];
-            for (let i = 0; i < 40; i++) {
-                let radius = Math.floor(Math.random() * 40) + 10;
+            for (let i = 0; i < 35; i++) {
+                let radius = Math.random() * 30 + 15;
                 let x = Math.random() * (canvas.width - radius * 2) + radius;
                 let y = Math.random() * (canvas.height - radius * 2) + radius;
-                let dx = (Math.random() - 0.5) * 200; 
-                let dy = (Math.random() - 0.5) * 200;
-                let color = getRandomColor();
+                let dx = (Math.random() - 0.5) * 150;
+                let dy = (Math.random() - 0.5) * 150;
+                
+                // Màu Cyan/Blue theo yêu cầu
+                let blue = Math.floor(Math.random() * 56) + 200;
+                let green = Math.floor(Math.random() * (blue - 50));
+                let color = `rgb(0, ${green}, ${blue})`;
+                
                 circleArray.push(new Circle(x, y, radius, dx, dy, color));
             }
         }
@@ -139,88 +131,69 @@
         let lastTime = 0;
         function animate(currentTime) {
             requestAnimationFrame(animate);
-
-            if (!lastTime) lastTime = currentTime;
             let dt = (currentTime - lastTime) / 1000;
-            lastTime = currentTime;
             if (dt > 0.1) dt = 0.1;
+            lastTime = currentTime;
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Cập nhật và vẽ bong bóng
-            for (let i = 0; i < circleArray.length; i++) {
-                circleArray[i].update(dt);
-            }
-
-            // Cập nhật và vẽ hạt vỡ (phải vẽ sau để đè lên bong bóng)
-            for (let i = 0; i < particleArray.length; i++) {
-                particleArray[i].update(dt);
-                // Xóa hạt đã biến mất hoàn toàn
-                if (particleArray[i].alpha <= 0) {
-                    particleArray.splice(i, 1);
-                    i--; // Giảm chỉ số i để không bỏ sót hạt
-                }
-            }
+            circleArray.forEach(c => c.update(dt));
+            particleArray = particleArray.filter(p => p.alpha > 0);
+            particleArray.forEach(p => p.update(dt));
         }
 
         initCircles();
         requestAnimationFrame(animate);
 
-        // --- XỬ LÝ SỰ KIỆN ẤN/TOUCH ĐỂ VỠ BONG BÓNG ---
-        function checkBurst(clickX, clickY) {
-            for (let i = 0; i < circleArray.length; i++) {
-                let circle = circleArray[i];
-                // Tính khoảng cách từ điểm click đến tâm bong bóng
-                let distance = Math.sqrt(Math.pow(clickX - circle.x, 2) + Math.pow(clickY - circle.y, 2));
-                
-                // Nếu điểm click nằm trong bong bóng
-                if (distance < circle.radius) {
-                    circle.burst(); // Gọi hiệu ứng vỡ
-                    circleArray.splice(i, 1); // Xóa bong bóng khỏi mảng
-                    i--; // Giảm chỉ số i
-                    // break; // Có thể bỏ comment nếu chỉ muốn vỡ 1 bong bóng mỗi lần click
+        // --- XỬ LÝ TƯƠNG TÁC ---
+
+        function handlePress(clientX, clientY) {
+            // Yêu cầu quyền cảm biến cho iOS khi người dùng chạm vào màn hình
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                DeviceMotionEvent.requestPermission().catch(console.error);
+            }
+
+            for (let i = circleArray.length - 1; i >= 0; i--) {
+                let c = circleArray[i];
+                let dist = Math.hypot(clientX - c.x, clientY - c.y);
+                if (dist < c.radius) {
+                    c.burst();
+                    circleArray.splice(i, 1);
+                    break; 
                 }
             }
         }
 
-        // Sự kiện Click chuột (cho máy tính)
-        window.addEventListener('click', function(event) {
-            checkBurst(event.clientX, event.clientY);
+        window.addEventListener('mousedown', e => handlePress(e.clientX, e.clientY));
+        window.addEventListener('touchstart', e => {
+            handlePress(e.touches[0].clientX, e.touches[0].clientY);
         });
 
-        // Sự kiện Touch (cho điện thoại)
-        window.addEventListener('touchstart', function(event) {
-            checkBurst(event.touches[0].clientX, event.touches[0].clientY);
-        });
+        // --- XỬ LÝ LẮC (SHAKE) ---
+        let lastX = 0, lastY = 0, lastZ = 0;
+        let threshold = 12; // Độ nhạy lắc
 
-        // --- XỬ LÝ SỰ KIỆN LẮC ĐIỆN THOẠI (DEVICE MOTION) ---
-        let lastAccelerationX = 0;
-        let shakeThreshold = 15; // Ngưỡng lắc (tăng số này nếu muốn lắc mạnh hơn mới nhận)
+        window.addEventListener('devicemotion', (e) => {
+            let acc = e.accelerationIncludingGravity;
+            if (!acc) return;
 
-        window.addEventListener('devicemotion', function(event) {
-            let acceleration = event.accelerationIncludingGravity;
+            let deltaX = Math.abs(acc.x - lastX);
+            let deltaY = Math.abs(acc.y - lastY);
             
-            if (acceleration) {
-                let currentAccelerationX = acceleration.x;
-                // Tính toán sự thay đổi đột ngột của gia tốc
-                let shakeDelta = Math.abs(currentAccelerationX - lastAccelerationX);
-                
-                if (shakeDelta > shakeThreshold) {
-                    // Lắc tất cả bong bóng
-                    for (let circle of circleArray) {
-                        circle.shake();
-                    }
-                }
-                lastAccelerationX = currentAccelerationX;
+            if (deltaX > threshold || deltaY > threshold) {
+                circleArray.forEach(c => c.shake());
             }
+
+            lastX = acc.x;
+            lastY = acc.y;
         });
 
-        // Xử lý thay đổi kích thước màn hình
-        window.addEventListener('resize', function() {
+        window.addEventListener('resize', () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            initCircles(); // Tạo lại bong bóng cho vừa màn hình mới
+            initCircles();
         });
+
     </script>
 </body>
 </html>
