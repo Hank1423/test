@@ -2,14 +2,94 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Floating Circles</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #f0f0f0; }
+        canvas { display: block; }
+    </style>
 </head>
 <body>
-    <div style="text-align: center; margin-top: 50px;">
-        <h1>Type anything slowly</h1>
-        <textarea id="txt" cols="40" rows="10" oninput="typeTextarea()"></textarea>
-    </div>
-    <script src="main.js"></script>
+    <canvas id="myCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("myCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Tự động điều chỉnh kích thước canvas theo màn hình
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        function getRandomHex() {
+            return Math.floor(Math.random() * 255);
+        }
+
+        // Hàm lấy màu chuẩn Cyan/Blue không có xanh lá (như đã thảo luận)
+        function getRandomColor() {
+            let blue = Math.floor(Math.random() * 56) + 200;
+            let green = Math.floor(Math.random() * (blue - 50));
+            let red = Math.floor(Math.random() * 50);
+            return `rgb(${red}, ${green}, ${blue})`;
+        }
+
+        // Cấu trúc đối tượng Circle mới
+        function Circle(x, y, radius, dx, dy, color) {
+            this.x = x;
+            this.y = y;
+            this.radius = radius;
+            this.dx = dx; // Tốc độ di chuyển theo trục X
+            this.dy = dy; // Tốc độ di chuyển theo trục Y
+            this.color = color;
+
+            this.draw = function() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.closePath();
+            };
+
+            this.update = function() {
+                // Kiểm tra va chạm cạnh trái/phải
+                if (this.x + this.radius > canvas.width || this.x - this.radius < 0) {
+                    this.dx = -this.dx;
+                }
+                // Kiểm tra va chạm cạnh trên/dưới
+                if (this.y + this.radius > canvas.height || this.y - this.radius < 0) {
+                    this.dy = -this.dy;
+                }
+
+                // Cập nhật vị trí
+                this.x += this.dx;
+                this.y += this.dy;
+
+                this.draw();
+            };
+        }
+
+        let circleArray = [];
+
+        // Tạo 30 hình tròn với vị trí và tốc độ ngẫu nhiên
+        for (let i = 0; i < 30; i++) {
+            let radius = Math.floor(Math.random() * 40) + 10;
+            let x = Math.random() * (canvas.width - radius * 2) + radius;
+            let y = Math.random() * (canvas.height - radius * 2) + radius;
+            let dx = (Math.random() - 0.5) * 4; // Tốc độ từ -2 đến 2
+            let dy = (Math.random() - 0.5) * 4;
+            let color = getRandomColor();
+            circleArray.push(new Circle(x, y, radius, dx, dy, color));
+        }
+
+        // Vòng lặp hoạt ảnh
+        function animate() {
+            requestAnimationFrame(animate); // Tạo vòng lặp mượt mà
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Xóa khung hình cũ
+
+            for (let i = 0; i < circleArray.length; i++) {
+                circleArray[i].update();
+            }
+        }
+
+        animate();
+    </script>
 </body>
 </html>
