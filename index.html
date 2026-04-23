@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Interactive Floating Circles</title>
+    <title>Bubble Merge on Shake</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000814; touch-action: none; }
         canvas { display: block; }
@@ -18,92 +18,82 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // --- CẤU TRÚC PARTICLE (HẠT VỠ) ---
         function Particle(x, y, radius, color, dx, dy) {
-            this.x = x;
-            this.y = y;
-            this.radius = radius;
-            this.color = color;
-            this.dx = dx;
-            this.dy = dy;
+            this.x = x; this.y = y; this.radius = radius;
+            this.color = color; this.dx = dx; this.dy = dy;
             this.alpha = 1;
-
-            this.draw = function() {
-                ctx.save();
-                ctx.globalAlpha = this.alpha;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.fill();
-                ctx.restore();
-            };
 
             this.update = function(dt) {
                 this.x += this.dx * dt;
                 this.y += this.dy * dt;
-                this.alpha -= 0.8 * dt; // Biến mất nhanh hơn một chút cho mượt
-                if (this.alpha > 0) this.draw();
+                this.alpha -= 0.8 * dt;
+                if (this.alpha > 0) {
+                    ctx.save();
+                    ctx.globalAlpha = this.alpha;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                    ctx.restore();
+                }
             };
         }
 
-        // --- CẤU TRÚC CIRCLE (BONG BÓNG) ---
         function Circle(x, y, radius, dx, dy, color) {
             this.x = x;
             this.y = y;
             this.radius = radius;
-            this.baseDx = dx;
-            this.baseDy = dy;
             this.dx = dx;
             this.dy = dy;
             this.color = color;
-            this.timeSinceShake = 0;
+            this.isMerging = false; // Trạng thái tụ lại
 
             this.draw = function() {
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
                 ctx.fill();
+                ctx.closePath();
             };
 
             this.update = function(dt) {
-                if (this.timeSinceShake > 0) {
-                    this.timeSinceShake -= dt;
-                    let factor = 1 + this.timeSinceShake * 2; // Tăng tốc khi lắc
-                    this.dx = this.baseDx * factor;
-                    this.dy = this.baseDy * factor;
+                if (this.isMerging) {
+                    // Di chuyển về tâm màn hình
+                    const centerX = canvas.width / 2;
+                    const centerY = canvas.height / 2;
+                    const angle = Math.atan2(centerY - this.y, centerX - this.x);
+                    const speed = 400; 
+                    
+                    this.x += Math.cos(angle) * speed * dt;
+                    this.y += Math.sin(angle) * speed * dt;
+
+                    // Kiểm tra va chạm để hợp nhất
+                    for (let i = 0; i < circleArray.length; i++) {
+                        let other = circleArray[i];
+                        if (this === other) continue;
+
+                        let dist = Math.hypot(this.x - other.x, this.y - other.y);
+                        if (dist < this.radius + other.radius) {
+                            // Hợp nhất diện tích: R_mới = sqrt(R1^2 + R2^2)
+                            this.radius = Math.sqrt(Math.pow(this.radius, 2) + Math.pow(other.radius, 2));
+                            circleArray.splice(i, 1);
+                            break;
+                        }
+                    }
                 } else {
-                    this.dx = this.baseDx;
-                    this.dy = this.baseDy;
+                    // Di chuyển bình thường
+                    if (this.x + this.radius > canvas.width || this.x - this.radius < 0) this.dx = -this.dx;
+                    if (this.y + this.radius > canvas.height || this.y - this.radius < 0) this.dy = -this.dy;
+                    this.x += this.dx * dt;
+                    this.y += this.dy * dt;
                 }
-
-                if (this.x + this.radius > canvas.width || this.x - this.radius < 0) {
-                    this.baseDx = -this.baseDx;
-                    this.dx = -this.dx;
-                }
-                if (this.y + this.radius > canvas.height || this.y - this.radius < 0) {
-                    this.baseDy = -this.baseDy;
-                    this.dy = -this.dy;
-                }
-
-                this.x += this.dx * dt;
-                this.y += this.dy * dt;
                 this.draw();
             };
 
             this.burst = function() {
                 for (let i = 0; i < 15; i++) {
-                    particleArray.push(new Particle(
-                        this.x, this.y, 
-                        Math.random() * 4 + 1, 
-                        this.color, 
-                        (Math.random() - 0.5) * 500, 
-                        (Math.random() - 0.5) * 500
-                    ));
+                    particleArray.push(new Particle(this.x, this.y, Math.random() * 4 + 1, this.color, (Math.random() - 0.5) * 500, (Math.random() - 0.5) * 500));
                 }
-            };
-
-            this.shake = function() {
-                this.timeSinceShake = 2; // Hiệu ứng lắc kéo dài 2 giây
             };
         }
 
@@ -113,17 +103,14 @@
         function initCircles() {
             circleArray = [];
             for (let i = 0; i < 35; i++) {
-                let radius = Math.random() * 30 + 15;
+                let radius = Math.random() * 20 + 10;
                 let x = Math.random() * (canvas.width - radius * 2) + radius;
                 let y = Math.random() * (canvas.height - radius * 2) + radius;
                 let dx = (Math.random() - 0.5) * 150;
                 let dy = (Math.random() - 0.5) * 150;
-                
-                // Màu Cyan/Blue theo yêu cầu
                 let blue = Math.floor(Math.random() * 56) + 200;
                 let green = Math.floor(Math.random() * (blue - 50));
                 let color = `rgb(0, ${green}, ${blue})`;
-                
                 circleArray.push(new Circle(x, y, radius, dx, dy, color));
             }
         }
@@ -136,27 +123,40 @@
             lastTime = currentTime;
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
             circleArray.forEach(c => c.update(dt));
             particleArray = particleArray.filter(p => p.alpha > 0);
             particleArray.forEach(p => p.update(dt));
+
+            // Nếu chỉ còn 1 bong bóng duy nhất và đang ở tâm, có thể cho nó trôi lại bình thường
+            if (circleArray.length === 1 && circleArray[0].isMerging) {
+                const c = circleArray[0];
+                if (Math.hypot(canvas.width/2 - c.x, canvas.height/2 - c.y) < 5) {
+                    c.isMerging = false;
+                }
+            }
         }
 
         initCircles();
         requestAnimationFrame(animate);
 
-        // --- XỬ LÝ TƯƠNG TÁC ---
-
         function handlePress(clientX, clientY) {
-            // Yêu cầu quyền cảm biến cho iOS khi người dùng chạm vào màn hình
             if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
                 DeviceMotionEvent.requestPermission().catch(console.error);
+            }
+            // Nếu click vào "siêu bong bóng" cuối cùng, hồi sinh lại tất cả
+            if (circleArray.length === 1) {
+                let c = circleArray[0];
+                if (Math.hypot(clientX - c.x, clientY - c.y) < c.radius) {
+                    c.burst();
+                    circleArray = [];
+                    setTimeout(initCircles, 500);
+                    return;
+                }
             }
 
             for (let i = circleArray.length - 1; i >= 0; i--) {
                 let c = circleArray[i];
-                let dist = Math.hypot(clientX - c.x, clientY - c.y);
-                if (dist < c.radius) {
+                if (Math.hypot(clientX - c.x, clientY - c.y) < c.radius) {
                     c.burst();
                     circleArray.splice(i, 1);
                     break; 
@@ -165,27 +165,16 @@
         }
 
         window.addEventListener('mousedown', e => handlePress(e.clientX, e.clientY));
-        window.addEventListener('touchstart', e => {
-            handlePress(e.touches[0].clientX, e.touches[0].clientY);
-        });
+        window.addEventListener('touchstart', e => handlePress(e.touches[0].clientX, e.touches[0].clientY));
 
-        // --- XỬ LÝ LẮC (SHAKE) ---
-        let lastX = 0, lastY = 0, lastZ = 0;
-        let threshold = 12; // Độ nhạy lắc
-
+        let lastX = 0;
         window.addEventListener('devicemotion', (e) => {
             let acc = e.accelerationIncludingGravity;
             if (!acc) return;
-
-            let deltaX = Math.abs(acc.x - lastX);
-            let deltaY = Math.abs(acc.y - lastY);
-            
-            if (deltaX > threshold || deltaY > threshold) {
-                circleArray.forEach(c => c.shake());
+            if (Math.abs(acc.x - lastX) > 15) {
+                circleArray.forEach(c => c.isMerging = true);
             }
-
             lastX = acc.x;
-            lastY = acc.y;
         });
 
         window.addEventListener('resize', () => {
@@ -193,7 +182,6 @@
             canvas.height = window.innerHeight;
             initCircles();
         });
-
     </script>
 </body>
 </html>
